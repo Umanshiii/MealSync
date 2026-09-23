@@ -1,4 +1,4 @@
-import { AlertTriangle, AlertCircle, CheckCircle, TrendingDown } from 'lucide-react';
+import { AlertTriangle, AlertCircle, TrendingDown, ArrowRight } from 'lucide-react';
 
 export type BMIStatus = 'PENDING' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED';
 
@@ -22,42 +22,41 @@ export default function BMIReminderBanner({
   }
 
   const getStatusConfig = () => {
+    // RED SCALE: OVERDUE (Critical Urgency)
     if (overdueCount > 0) {
       return {
-        icon: <AlertTriangle className="w-6 h-6" />,
-        bgColor: 'bg-red-50',
+        icon: <AlertTriangle className="w-6 h-6 text-red-600" />,
+        bgColor: 'bg-white',
         borderColor: 'border-red-500',
-        textColor: 'text-red-800',
-        iconColor: 'text-red-600',
-        title: '⚠️ CRITICAL: Overdue BMI Updates Required',
-        message: `${overdueCount} student(s) have overdue BMI data from last month. Immediate action required.`,
-        buttonColor: 'bg-red-600 hover:bg-red-700',
+        textColor: 'text-[#334155]',
+        iconBg: 'bg-red-50',
+        title: '⚠️ CRITICAL: Overdue BMI Updates',
+        message: `${overdueCount} student(s) have overdue BMI records. Immediate synchronization with the PM-POSHAN portal is required.`,
+        buttonStyle: 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/10',
+        badge: (
+          <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase shadow-sm">
+            Mandatory
+          </div>
+        )
       };
     }
 
-    if (status === 'DUE_SOON') {
+    // AMBER SCALE: DUE SOON (High Urgency)
+    if (status === 'DUE_SOON' || pendingCount > 0) {
       return {
-        icon: <AlertCircle className="w-6 h-6" />,
-        bgColor: 'bg-yellow-50',
-        borderColor: 'border-yellow-500',
-        textColor: 'text-yellow-800',
-        iconColor: 'text-yellow-600',
-        title: '⏰ BMI Update Deadline Approaching',
-        message: `${pendingCount} student(s) pending BMI data. Please update before month end (2 days remaining).`,
-        buttonColor: 'bg-yellow-600 hover:bg-yellow-700',
-      };
-    }
-
-    if (status === 'PENDING' && pendingCount > 0) {
-      return {
-        icon: <AlertCircle className="w-6 h-6" />,
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-400',
-        textColor: 'text-blue-800',
-        iconColor: 'text-blue-600',
-        title: 'ℹ️ Monthly BMI Update Pending',
-        message: `${pendingCount} student(s) need BMI data for this month.`,
-        buttonColor: 'bg-blue-600 hover:bg-blue-700',
+        icon: <AlertCircle className="w-6 h-6 text-[#FF9933]" />,
+        bgColor: 'bg-white',
+        borderColor: 'border-[#FF9933]', 
+        textColor: 'text-[#334155]',
+        iconBg: 'bg-[#FFF4E5]',
+        title: '⏰ Update Deadline Approaching',
+        message: `${pendingCount} student(s) pending monthly updates. Complete profiles before the automated month-end lock.`,
+        buttonStyle: 'bg-[#2C533A] text-white hover:bg-[#1E3B29] shadow-[#2C533A]/10',
+        badge: (
+          <div className="bg-[#FFF4E5] text-[#FF9933] border border-[#FF9933]/20 px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase">
+            Action Required
+          </div>
+        )
       };
     }
 
@@ -68,26 +67,41 @@ export default function BMIReminderBanner({
   if (!config) return null;
 
   return (
-    <div className={`${config.bgColor} border-l-4 ${config.borderColor} rounded-lg p-4 mb-6 shadow-md`}>
-      <div className="flex items-start gap-4">
-        <div className={config.iconColor}>{config.icon}</div>
+    <div className={`${config.bgColor} border-l-[8px] ${config.borderColor} rounded-3xl p-6 lg:p-8 mb-6 shadow-sm border border-y-[#E2E8F0] border-r-[#E2E8F0] animate-in fade-in slide-in-from-top-4 duration-300`}>
+      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
+        
+        {/* Urgent Icon Backdrop */}
+        <div className={`flex-shrink-0 w-12 h-12 rounded-xl ${config.iconBg} flex items-center justify-center`}>
+          {config.icon}
+        </div>
 
-        <div className="flex-1">
-          <h3 className={`${config.textColor} mb-2`}>{config.title}</h3>
-          <p className={`text-sm ${config.textColor} mb-3`}>{config.message}</p>
+        <div className="flex-1 w-full space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className={`text-lg font-extrabold tracking-tight ${config.textColor}`}>
+                {config.title}
+              </h3>
+              <p className="text-xs font-medium text-gray-400 mt-1 leading-relaxed">
+                {config.message}
+              </p>
+            </div>
+            <div className="flex-shrink-0 self-start sm:self-center">
+              {config.badge}
+            </div>
+          </div>
 
+          {/* Critical Students Highlight */}
           {criticalStudents.length > 0 && (
-            <div className="mb-3 p-3 bg-white border border-red-300 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingDown className="w-4 h-4 text-red-600" />
-                <span className="text-sm text-red-800">Students Requiring Immediate Attention:</span>
+            <div className="p-4 bg-gray-50/50 rounded-2xl border border-[#E2E8F0]">
+              <div className="flex items-center gap-2 mb-2.5">
+                <TrendingDown className="w-4 h-4 text-red-500" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-[#334155]/60">
+                  Deficient Growth Records Tracked
+                </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {criticalStudents.map((student, index) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs"
-                  >
+                  <span key={index} className="px-3 py-1 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-bold">
                     {student}
                   </span>
                 ))}
@@ -95,28 +109,18 @@ export default function BMIReminderBanner({
             </div>
           )}
 
-          <button
-            onClick={onNavigateToBMI}
-            className={`px-4 py-2 ${config.buttonColor} text-white rounded-lg transition-all text-sm`}
-          >
-            Update BMI Data Now
-          </button>
-        </div>
-
-        {status === 'OVERDUE' && (
-          <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs h-fit">
-            MANDATORY
+          <div className="pt-2">
+            <button
+              onClick={onNavigateToBMI}
+              className={`group flex items-center gap-2 px-6 py-3.5 ${config.buttonStyle} rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-md active:scale-98`}
+            >
+              Update BMI Data Now
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            </button>
           </div>
-        )}
-      </div>
-
-      {overdueCount > 0 && (
-        <div className="mt-4 pt-4 border-t border-red-200">
-          <p className="text-xs text-red-700">
-            <strong>Note:</strong> BMI tracking is mandatory for all students. Dashboard insights may be restricted until updates are completed.
-          </p>
         </div>
-      )}
+
+      </div>
     </div>
   );
 }

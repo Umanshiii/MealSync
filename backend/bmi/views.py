@@ -11,7 +11,8 @@ from .serializers import (
     BMIComplianceStatusSerializer, StudentBMIStatusSerializer,
     SchoolBMIDetailSerializer
 )
-from schools.models import School, Student
+from schools.models import School
+from students.models import Student
 
 
 class BMIRecordViewSet(viewsets.ModelViewSet):
@@ -31,7 +32,7 @@ class BMIRecordViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'admin':
             return BMIRecord.objects.all()
-        elif user.role == 'teacher' and user.school:
+        elif user.role == 'supervisor' and user.school:
             return BMIRecord.objects.filter(school=user.school)
         return BMIRecord.objects.none()
 
@@ -141,7 +142,7 @@ class BMIComplianceStatusViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if user.role == 'admin':
             return BMIComplianceStatus.objects.all()
-        elif user.role == 'teacher' and user.school:
+        elif user.role == 'supervisor' and user.school:
             return BMIComplianceStatus.objects.filter(school=user.school)
         return BMIComplianceStatus.objects.none()
 

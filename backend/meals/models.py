@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
-from schools.models import School, Student
+from schools.models import School
+from students.models import Student
 
 class MealRecord(models.Model):
     """Daily meal record with photo"""
@@ -28,7 +29,7 @@ class MealRecord(models.Model):
         ordering = ['-date']
 
     def __str__(self):
-        return f"{self.school.name} - {self.date}"
+        return f"{self.school.school_name} - {self.date}"
 
     def calculate_nutrition_score(self):
         """Auto-calculate nutrition score based on meal photo analysis"""
@@ -43,21 +44,3 @@ class MealRecord(models.Model):
         self.carb_content = random.uniform(70, 90)
         self.fat_content = random.uniform(15, 30)
         self.save()
-
-
-class Attendance(models.Model):
-    """Daily student attendance"""
-    meal_record = models.ForeignKey(MealRecord, on_delete=models.CASCADE, related_name='attendances')
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
-    is_present = models.BooleanField(default=False)
-    marked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    marked_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'attendance'
-        unique_together = [['meal_record', 'student']]
-        ordering = ['-marked_at']
-
-    def __str__(self):
-        status = "Present" if self.is_present else "Absent"
-        return f"{self.student.name} - {self.meal_record.date} - {status}"

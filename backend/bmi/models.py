@@ -1,10 +1,11 @@
 from django.db import models
 from django.conf import settings
-from schools.models import School, Student
 from django.core.validators import MinValueValidator, MaxValueValidator
+from schools.models import School
+from students.models import Student
 
 class BMIRecord(models.Model):
-    """Student BMI record - monthly tracking"""
+    """Monthly BMI tracking for students"""
     BMI_CATEGORIES = [
         ('underweight', 'Underweight'),
         ('normal', 'Normal'),
@@ -19,13 +20,14 @@ class BMIRecord(models.Model):
     height_cm = models.FloatField(validators=[MinValueValidator(50), MaxValueValidator(250)])
     weight_kg = models.FloatField(validators=[MinValueValidator(10), MaxValueValidator(200)])
 
-    # Calculated fields
+    # Calculated fields (set to editable=False as they are auto-calculated)
     bmi_value = models.FloatField(editable=False)
     bmi_category = models.CharField(max_length=15, choices=BMI_CATEGORIES, editable=False)
 
-    # Tracking
+    # Timeframe
     month = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
     year = models.IntegerField()
+    
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -33,27 +35,27 @@ class BMIRecord(models.Model):
     class Meta:
         db_table = 'bmi_records'
         unique_together = [['student', 'month', 'year']]
-        ordering = ['-year', '-month', 'student__name']
+        ordering = ['-year', '-month', 'student__student_name']
         indexes = [
             models.Index(fields=['school', 'month', 'year']),
             models.Index(fields=['student', 'month', 'year']),
         ]
 
     def __str__(self):
-        return f"{self.student.name} - {self.month}/{self.year} - BMI: {self.bmi_value}"
+        return f"{self.student.student_name} - {self.month}/{self.year} - {self.bmi_category}"
 
     def save(self, *args, **kwargs):
-        """Auto-calculate BMI before saving"""
+        """Auto-calculate BMI and update school compliance before saving"""
         self.calculate_bmi()
         super().save(*args, **kwargs)
+        # Update the overall school compliance status automatically
+        BMIComplianceStatus.update_compliance(self.school, self.month, self.year)
 
     def calculate_bmi(self):
-        """Calculate BMI value and category"""
-        # BMI = weight_kg / (height_m)^2
+        """Calculate BMI value and category logic"""
         height_m = self.height_cm / 100
         self.bmi_value = round(self.weight_kg / (height_m ** 2), 2)
 
-        # Determine category
         if self.bmi_value < 18.5:
             self.bmi_category = 'underweight'
         elif self.bmi_value < 25:
@@ -63,22 +65,9 @@ class BMIRecord(models.Model):
         else:
             self.bmi_category = 'obese'
 
-    def has_bmi_drop(self):
-        """Check if there's a significant BMI drop from previous month"""
-        previous_records = BMIRecord.objects.filter(
-            student=self.student,
-            year__lte=self.year,
-            month__lt=self.month
-        ).order_by('-year', '-month').first()
-
-        if previous_records:
-            drop = previous_records.bmi_value - self.bmi_value
-            return drop > 2  # Significant drop if >2 points
-        return False
-
 
 class BMIComplianceStatus(models.Model):
-    """Track BMI compliance status by school per month"""
+    """Aggregated compliance tracking for Admin Dashboard"""
     COMPLIANCE_STATUS = [
         ('compliant', 'Compliant'),
         ('partially_compliant', 'Partially Compliant'),
@@ -104,14 +93,14 @@ class BMIComplianceStatus(models.Model):
         ordering = ['-year', '-month']
 
     def __str__(self):
-        return f"{self.school.name} - {self.month}/{self.year} - {self.compliance_status}"
+        return f"{self.school.school_name} - {self.month}/{self.year}: {self.completion_percentage}%"
 
     @classmethod
     def update_compliance(cls, school, month, year):
-        """Update compliance status for a school"""
-        from django.db.models import Count
-
+        """Logic to calculate how many students have submitted BMI vs total students"""
         total_students = Student.objects.filter(school=school, is_active=True).count()
+        
+        # Count unique students who have a record for this specific month/year
         students_with_bmi = BMIRecord.objects.filter(
             school=school,
             month=month,
@@ -121,7 +110,6 @@ class BMIComplianceStatus(models.Model):
         pending = total_students - students_with_bmi
         percentage = int((students_with_bmi / total_students * 100)) if total_students > 0 else 0
 
-        # Determine compliance status
         if percentage == 100:
             status = 'compliant'
         elif percentage >= 50:
@@ -129,8 +117,7 @@ class BMIComplianceStatus(models.Model):
         else:
             status = 'non_compliant'
 
-        # Update or create
-        obj, created = cls.objects.update_or_create(
+        obj, _ = cls.objects.update_or_create(
             school=school,
             month=month,
             year=year,

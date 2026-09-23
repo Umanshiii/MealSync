@@ -1,66 +1,83 @@
 from rest_framework import serializers
-from .models import MealRecord, Attendance
-from schools.serializers import StudentListSerializer
-
+from .models import MealRecord
+from students.models import Attendance, Student
 
 class AttendanceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source='student.name', read_only=True)
-    student_roll_number = serializers.CharField(source='student.roll_number', read_only=True)
+    # Fixed: Mapping 'source' to match the actual fields inside students/models.py
+    student_name = serializers.CharField(source='student.student_name', read_only=True)
+    student_uid = serializers.CharField(source='student.student_id', read_only=True)
 
     class Meta:
         model = Attendance
-        fields = ['id', 'meal_record', 'student', 'student_name', 'student_roll_number',
-                  'is_present', 'marked_by', 'marked_at']
-        read_only_fields = ['id', 'marked_by', 'marked_at']
+        fields = [
+            'id', 'student', 'student_name', 'student_uid',
+            'month', 'year', 'total_school_days', 'days_present', 
+            'days_absent', 'attendance_percentage', 'remarks', 'recorded_at'
+        ]
+        read_only_fields = ['id', 'recorded_at']
 
 
 class MealRecordSerializer(serializers.ModelSerializer):
-    school_name = serializers.CharField(source='school.name', read_only=True)
+    # Fixed: Pointing to school_name instead of name to avoid database lookup crashes
+    school_name = serializers.CharField(source='school.school_name', read_only=True)
     uploaded_by_name = serializers.CharField(source='uploaded_by.username', read_only=True)
-    attendances = AttendanceSerializer(many=True, read_only=True)
+    
     total_students = serializers.SerializerMethodField()
     present_count = serializers.SerializerMethodField()
 
     class Meta:
         model = MealRecord
-        fields = ['id', 'school', 'school_name', 'date', 'meal_photo', 'uploaded_by',
-                  'uploaded_by_name', 'nutrition_score', 'nutrition_status', 'protein_content',
-                  'carb_content', 'fat_content', 'notes', 'attendances', 'total_students',
-                  'present_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'uploaded_by', 'nutrition_score', 'nutrition_status',
-                            'protein_content', 'carb_content', 'fat_content', 'created_at', 'updated_at']
+        fields = [
+            'id', 'school', 'school_name', 'date', 'meal_photo', 'uploaded_by',
+            'uploaded_by_name', 'nutrition_score', 'nutrition_status', 'protein_content',
+            'carb_content', 'fat_content', 'notes', 'total_students',
+            'present_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'uploaded_by', 'nutrition_score', 'nutrition_status',
+            'protein_content', 'carb_content', 'fat_content', 'created_at', 'updated_at'
+        ]
 
     def get_total_students(self, obj):
-        return obj.attendances.count()
+        # Dynamically calculate total school strength for that specific date context
+        return Student.objects.filter(school=obj.school, is_active=True).count()
 
     def get_present_count(self, obj):
-        return obj.attendances.filter(is_present=True).count()
+        # Calculate how many kids were logged present for this specific date record's month/year
+        return Attendance.objects.filter(
+            student__school=obj.school,
+            month=obj.date.month,
+            year=obj.date.year,
+            days_present=1
+        ).count()
 
 
 class MealRecordCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating meal records"""
-
+    """Serializer for creating meal records cleanly inside viewsets performs"""
     class Meta:
         model = MealRecord
         fields = ['school', 'date', 'meal_photo', 'notes']
 
     def create(self, validated_data):
         meal_record = MealRecord.objects.create(**validated_data)
-        # Calculate nutrition score after creation
+        # Automatically trigger calculation pipeline rules upon instantiation
         meal_record.calculate_nutrition_score()
         return meal_record
 
 
 class BulkAttendanceSerializer(serializers.Serializer):
-    """Serializer for bulk attendance marking"""
+    """Serializer for bulk attendance array marking"""
     meal_record = serializers.IntegerField()
+    # Fixed: Removed the strict Boolean child type restriction so student_id can pass safely as an integer/string
     attendance_data = serializers.ListField(
-        child=serializers.DictField(child=serializers.BooleanField())
+        child=serializers.DictField()
     )
 
     def validate_attendance_data(self, value):
-        """Validate that each item has student_id and is_present"""
+        """Validate that each layout item dictionary contains correct keys"""
         for item in value:
             if 'student_id' not in item or 'is_present' not in item:
-                raise serializers.ValidationError("Each attendance record must have student_id and is_present")
+                raise serializers.ValidationError(
+                    "Each bulk record dictionary row block must contain 'student_id' and 'is_present'."
+                )
         return value

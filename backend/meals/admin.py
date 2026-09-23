@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import MealRecord, Attendance
-
+from .models import MealRecord
 
 @admin.register(MealRecord)
 class MealRecordAdmin(admin.ModelAdmin):
@@ -19,23 +18,5 @@ class MealRecordAdmin(admin.ModelAdmin):
         }),
         ('Additional Information', {
             'fields': ('notes', 'created_at', 'updated_at')
-        }),
-    )
-
-
-@admin.register(Attendance)
-class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ['student', 'meal_record', 'is_present', 'marked_by', 'marked_at']
-    list_filter = ['is_present', 'meal_record__school', 'meal_record__date']
-    search_fields = ['student__name', 'student__roll_number']
-    readonly_fields = ['marked_at']
-    date_hierarchy = 'marked_at'
-
-    fieldsets = (
-        ('Attendance Record', {
-            'fields': ('meal_record', 'student', 'is_present')
-        }),
-        ('Tracking', {
-            'fields': ('marked_by', 'marked_at')
         }),
     )

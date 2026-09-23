@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { School, TrendingUp, AlertCircle, Eye, LogOut, BarChart3, Activity, AlertTriangle } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -13,6 +13,7 @@ interface AdminDashboardProps {
     bmi_value: number;
     bmi_category: string;
   }>;
+  schools: SchoolData[]; // passed from backend, not hardcoded
 }
 
 interface SchoolData {
@@ -25,78 +26,36 @@ interface SchoolData {
   lastUpdate: string;
 }
 
-export default function AdminDashboard({ onLogout, onViewReports, onViewBMIMonitoring, bmiRecords = [] }: AdminDashboardProps) {
-  const [schools] = useState<SchoolData[]>([
-    {
-      id: 1,
-      name: 'Sunrise Public School',
-      location: 'Mumbai',
-      nutritionScore: 85,
-      status: 'Safe',
-      attendance: 92,
-      lastUpdate: '2 hours ago',
-    },
-    {
-      id: 2,
-      name: 'Green Valley School',
-      location: 'Delhi',
-      nutritionScore: 78,
-      status: 'Safe',
-      attendance: 88,
-      lastUpdate: '3 hours ago',
-    },
-    {
-      id: 3,
-      name: 'River View Academy',
-      location: 'Bangalore',
-      nutritionScore: 62,
-      status: 'Unsafe',
-      attendance: 85,
-      lastUpdate: '1 hour ago',
-    },
-    {
-      id: 4,
-      name: 'Mountain Peak School',
-      location: 'Pune',
-      nutritionScore: 91,
-      status: 'Safe',
-      attendance: 95,
-      lastUpdate: '4 hours ago',
-    },
-    {
-      id: 5,
-      name: 'City Central School',
-      location: 'Hyderabad',
-      nutritionScore: 58,
-      status: 'Unsafe',
-      attendance: 79,
-      lastUpdate: '5 hours ago',
-    },
-    {
-      id: 6,
-      name: 'Heritage Public School',
-      location: 'Chennai',
-      nutritionScore: 88,
-      status: 'Safe',
-      attendance: 90,
-      lastUpdate: '2 hours ago',
-    },
-  ]);
+export default function AdminDashboard({
+  onLogout,
+  onViewReports,
+  onViewBMIMonitoring,
+  bmiRecords = [],
+  schools = [],
+}: AdminDashboardProps) {
+  const avgNutrition =
+    schools.length > 0
+      ? Math.round(schools.reduce((acc, s) => acc + s.nutritionScore, 0) / schools.length)
+      : 0;
 
-  const avgNutrition = Math.round(schools.reduce((acc, s) => acc + s.nutritionScore, 0) / schools.length);
-  const avgAttendance = Math.round(schools.reduce((acc, s) => acc + s.attendance, 0) / schools.length);
-  const unsafeSchools = schools.filter(s => s.status === 'Unsafe').length;
+  const avgAttendance =
+    schools.length > 0
+      ? Math.round(schools.reduce((acc, s) => acc + s.attendance, 0) / schools.length)
+      : 0;
+
+  const unsafeSchools = schools.filter((s) => s.status === 'Unsafe').length;
 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   const currentMonthRecords = bmiRecords.filter(
-    r => parseInt(r.month) === currentMonth && r.year === currentYear
+    (r) => parseInt(r.month) === currentMonth && r.year === currentYear
   );
   const totalStudentsExpected = 10;
-  const studentsWithBMI = new Set(currentMonthRecords.map(r => r.studentId)).size;
-  const bmiCompletionRate = totalStudentsExpected > 0
-    ? Math.round((studentsWithBMI / totalStudentsExpected) * 100)
-    : 0;
+  const studentsWithBMI = new Set(currentMonthRecords.map((r) => r.studentId)).size;
+  const bmiCompletionRate =
+    totalStudentsExpected > 0
+      ? Math.round((studentsWithBMI / totalStudentsExpected) * 100)
+      : 0;
   const hasBMIAlert = bmiCompletionRate < 100;
 
   return (

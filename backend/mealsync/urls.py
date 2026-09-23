@@ -12,7 +12,8 @@ urlpatterns = [
     path('api/schools/', include('schools.urls')),
     path('api/meals/', include('meals.urls')),
     path('api/bmi/', include('bmi.urls')),
-]
+    path('api/students/', include('students.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
